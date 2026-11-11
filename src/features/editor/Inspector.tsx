@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import type { Frame, Layer } from '../../engine';
 import { useStore } from '../../store';
 import { Button } from '../../ui/Button';
-import { ColorField, NumberField, Section, TextField } from '../../ui/fields';
+import { ColorField, NumberField, Section, SelectField, TextField } from '../../ui/fields';
+import { artboardSizes, sizeKey } from './artboardSizes';
 import { inspectorFor } from './inspectors';
 
 export function Inspector() {
@@ -21,12 +22,30 @@ export function Inspector() {
 function ArtboardInspector() {
   const preset = useStore((s) => s.preset);
   const editPreset = useStore((s) => s.editPreset);
+  const setArtboardSize = useStore((s) => s.setArtboardSize);
+
+  const current = sizeKey(preset.artboard);
+  const options = artboardSizes.map((size) => ({ value: sizeKey(size), label: size.label }));
+  // A size that is not in the list, such as one from an imported preset.
+  if (!options.some((o) => o.value === current)) options.unshift({ value: current, label: 'Custom' });
+
   return (
     <>
       <Section title="Artboard">
-        <p className="text-sm text-neutral-700 tabular-nums">
+        <SelectField
+          label="Size"
+          value={current}
+          options={options}
+          testId="artboard-size"
+          onChange={(key) => {
+            const size = artboardSizes.find((s) => sizeKey(s) === key);
+            if (size) setArtboardSize(size.width, size.height);
+          }}
+        />
+        <p className="text-sm text-neutral-700 tabular-nums" data-testid="artboard-px">
           {preset.artboard.width} × {preset.artboard.height} px
         </p>
+        <p className="text-xs leading-relaxed text-neutral-500">Layers stay where they are when the size changes.</p>
         <ColorField
           label="Background"
           value={preset.artboard.background}
