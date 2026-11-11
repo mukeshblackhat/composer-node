@@ -10,7 +10,7 @@ A deterministic Composer node for a node-based workflow. Images and text go in a
 ```
 npm install
 npm run dev          # the app
-npm test             # 41 unit tests
+npm test             # 44 unit tests
 npm run typecheck
 npm run build
 ```
@@ -36,6 +36,7 @@ src/engine/      the renderer: pure TypeScript, no React, no store
   fit.ts         contain and cover
   layers/        one file per layer type, plus the registry
   validate.ts    checks a preset before it is used
+src/assets/      the font and image list, and the cache that loads them and images from links
 src/store/       Zustand: graph, preset (with undo), editor and run slices
 src/features/
   canvas/        React Flow: image and text inputs, Composer, Output
@@ -53,7 +54,7 @@ To add a layer type: add a file in `src/engine/layers/` (layout and paint), add 
 
 ### 1. The three most important choices, and what I rejected
 
-**One render function makes every pixel.** The editor preview, the Output node, PNG export and the batch run all call `render(preset, inputs)`, which draws on a plain 2D canvas at the full artboard size. The preview is that canvas scaled down with CSS. Selection boxes, handles, guides and empty-slot hints are DOM on top of it, so they can never end up in an export. Export does not copy the preview: it renders again on a fresh canvas with the same function. I rejected a DOM preview exported with html-to-image, because the browser would wrap the text one way on screen and the exporter another. I rejected Konva and Fabric because they keep their own scene state and their own text layout.
+**One render function makes every pixel.** The editor preview, the Output node, PNG export and the batch run all call `render(preset, inputs)`, which draws on a plain 2D canvas at the full artboard size. The preview is that canvas scaled down with CSS. Painting always happens on a canvas that is not on the page, and the result is copied into the preview: a canvas on the page inherits CSS such as font smoothing, which on macOS changed the text pixels and made the preview differ from the export. Selection boxes, handles, guides and empty-slot hints are DOM on top of it, so they can never end up in an export. Export does not copy the preview: it renders again on a fresh canvas with the same function. I rejected a DOM preview exported with html-to-image, because the browser would wrap the text one way on screen and the exporter another. I rejected Konva and Fabric because they keep their own scene state and their own text layout.
 
 **I lay out text myself.** The engine measures words, wraps them, and works out every line's x position and baseline in whole pixels before it paints anything. The browser never decides a line break or the alignment. I rejected drawing text as vector paths with opentype.js for now. It would hold up better across browsers, but it cost more time than I had.
 
@@ -74,21 +75,23 @@ To add a layer type: add a file in `src/engine/layers/` (layout and paint), add 
 }
 ```
 
-**Inputs that do not fit.** Images are never stretched. A product uses `contain` and sits on its anchor, so a tall bottle in a wide slot keeps its shape and stands at the bottom centre. A backdrop uses `cover` and crops around its anchor. Text wraps to the frame; if it still does not fit, it shrinks one pixel at a time down to the layer's smallest size, then the last line is cut with an ellipsis. A word wider than the frame gets its own line. A missing input skips the layer. Every fallback shows up as a warning on the Output node, in the editor and on each batch result.
+**Inputs that do not fit.** Images are never stretched. A product uses `contain` and sits on its anchor, so a tall bottle in a wide slot keeps its shape and stands at the bottom centre. A backdrop uses `cover` and crops around its anchor. Text wraps to the frame; if it still does not fit, it shrinks one pixel at a time down to the layer's smallest size, then the last line is cut with an ellipsis. A word wider than the frame gets its own line. A missing input skips the layer. An image input is a bundled asset or an `http(s)` link; a link that is gone, is not an image, or whose host does not allow other sites to read it skips the layer too, and a batch carries on. Every fallback shows up as a warning on the Output node, in the editor and on each batch result.
 
 ### 2. Limits
 
 - The same pixels are only promised on the same browser and OS. Text edges differ between platforms, and browsers with canvas fingerprint protection (Brave, Firefox in strict mode) add noise to pixel reads, which breaks the hash.
 - Frames are fixed. When a title wraps to two lines, the tagline under it does not move down, so they can touch. Set 3 shows this.
-- Images and fonts come from a fixed asset list. There is no upload, and an image id in a CSV must match that list.
+- Fonts come from a fixed list. An image is a bundled asset or a link; there is no upload.
+- A link is not a fixed input. If its host serves a different image tomorrow, the same CSV gives different pixels. Each link is fetched once per page load, and `run.json` records the SHA-256 of the bytes it gave, so a change can be detected but not prevented.
+- A link only works if its host allows cross-origin reads. Linked images are decoded by the browser, so their pixels can differ between browser versions. The golden hashes cover bundled assets only.
 - Undo covers the preset, not the node graph. A wire that was unplugged by deleting its slot does not come back on undo.
 - The 9:16 layout is a second preset, not one layout adapting to two formats.
 - Text needs canvas `letterSpacing`, which older browsers do not have.
 
 ### 3. How I verified it
 
-- 41 unit tests cover the fit maths, text wrap, shrink and cut, alignment, preset checks, wiring rules and drag geometry.
-- 7 Playwright tests in Chrome: golden hashes for the 5 sets; two fresh browser sessions give the same hashes; Verify finds all 5 identical; each downloaded PNG, decoded in Node, hashes the same as the editor preview for all 5 sets; the Output node matches the preview; the zip holds one PNG per set with the run's hashes; a long title shrinks and then is cut.
+- 44 unit tests cover the fit maths, text wrap, shrink and cut, alignment, preset checks, wiring rules, drag geometry and telling links from asset ids.
+- 10 Playwright tests in Chrome: golden hashes for the 5 sets; two fresh browser sessions give the same hashes; Verify finds all 5 identical; each downloaded PNG, decoded in Node, hashes the same as the editor preview for all 5 sets; the Output node matches the preview; the zip holds one PNG per set with the run's hashes; a long title shrinks and then is cut; a batch draws a good link, warns about a missing link, a web page and a host that blocks reads, and still finishes; a linked image exports with the preview's pixels; a bad link says why on its input node. The link tests use a local server, not the internet.
 - I made sure the golden test can fail: changing one text colour from `#3b1d10` to `#3b1d11` broke it.
 - Not verified: Safari, Firefox and Windows; the real asset pack; very large images; touch input; runs of 100 or more sets.
 
