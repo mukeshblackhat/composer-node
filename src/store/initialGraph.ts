@@ -9,7 +9,7 @@ export function initialGraph(): { nodes: AppNode[]; edges: AppEdge[] } {
     { id: 'in-title', type: 'textInput', position: { x: 0, y: 420 }, data: { label: 'Title', text: 'Slow mornings' } },
     { id: 'in-tagline', type: 'textInput', position: { x: 0, y: 560 }, data: { label: 'Tagline', text: 'Daily oat cleanser' } },
     { id: COMPOSER_ID, type: 'composer', position: { x: 300, y: 130 }, data: {}, deletable: false },
-    { id: OUTPUT_ID, type: 'output', position: { x: 660, y: 150 }, data: {}, deletable: false },
+    { id: OUTPUT_ID, type: 'outputImage', position: { x: 660, y: 150 }, data: {}, deletable: false },
   ];
   const edges: AppEdge[] = [
     makeEdge('in-backdrop', COMPOSER_ID, 'backdrop', 'image'),

@@ -10,7 +10,8 @@ export type TextInputData = { label: string; text: string };
 export type ImageInputNode = Node<ImageInputData, 'imageInput'>;
 export type TextInputNode = Node<TextInputData, 'textInput'>;
 export type ComposerNode = Node<Record<string, never>, 'composer'>;
-export type OutputNode = Node<Record<string, never>, 'output'>;
+// Not called 'output': React Flow ships default CSS for its own 'output' node type.
+export type OutputNode = Node<Record<string, never>, 'outputImage'>;
 
 export type InputNode = ImageInputNode | TextInputNode;
 export type AppNode = InputNode | ComposerNode | OutputNode;
