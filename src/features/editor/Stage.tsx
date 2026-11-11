@@ -14,7 +14,7 @@ export function Stage({ inputs }: { inputs: InputSet }) {
   const areaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [area, setArea] = useState({ w: 0, h: 0 });
-  const { layout, hash } = useRender(canvasRef, preset, inputs, { hash: true });
+  const { layout, hash, pending } = useRender(canvasRef, preset, inputs, { hash: true });
 
   useLayoutEffect(() => {
     const el = areaRef.current;
@@ -53,7 +53,7 @@ export function Stage({ inputs }: { inputs: InputSet }) {
             {hash ? hash.slice(0, 12) : '…'}
           </code>
         </span>
-        {layout && <WarningBadges warnings={layout.warnings} preset={preset} />}
+        {pending ? <span>Loading image…</span> : layout && <WarningBadges warnings={layout.warnings} preset={preset} />}
       </footer>
     </div>
   );

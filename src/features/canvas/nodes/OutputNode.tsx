@@ -18,7 +18,7 @@ export function OutputNode(_: NodeProps<OutputNodeType>) {
   const graphInputs = useGraphInputs();
   const inputs = connected ? graphInputs : NOTHING;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { layout, hash } = useRender(canvasRef, preset, inputs, { hash: true });
+  const { layout, hash, pending } = useRender(canvasRef, preset, inputs, { hash: true });
   const { width, height } = preset.artboard;
 
   return (
@@ -36,6 +36,11 @@ export function OutputNode(_: NodeProps<OutputNodeType>) {
               Connect the Composer
             </span>
           )}
+          {connected && pending && (
+            <span className="absolute inset-x-0 bottom-0 bg-white/80 py-1 text-center text-xs text-neutral-600" data-testid="output-loading">
+              Loading image…
+            </span>
+          )}
         </div>
         <div className="mt-2 flex items-center justify-between gap-2">
           <code className="truncate font-mono text-[11px] text-neutral-500" data-testid="output-hash" data-hash={hash} title={hash}>
@@ -51,7 +56,7 @@ export function OutputNode(_: NodeProps<OutputNodeType>) {
             PNG
           </Button>
         </div>
-        {layout && layout.warnings.length > 0 && (
+        {!pending && layout && layout.warnings.length > 0 && (
           <div className="mt-2">
             <WarningBadges warnings={layout.warnings} preset={preset} />
           </div>
