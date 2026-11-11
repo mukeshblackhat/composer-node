@@ -3,4 +3,12 @@
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Shows transparent parts of a product cutout. */
+.checker {
+  background-color: #fff;
+  background-image: conic-gradient(#f0f0f0 25%, #fff 0 50%, #f0f0f0 0 75%, #fff 0);
+  background-size: 12px 12px;
 }
