@@ -32,6 +32,8 @@ export type PresetSlice = {
   renameSlot(from: string, to: string): string | null;
   setSlotLabel(key: string, label: string): void;
   setPresetName(name: string): void;
+  /** Layers do not move or scale with the artboard. */
+  setArtboardSize(width: number, height: number): void;
 
   /** Save over the saved preset with the same id, or add it. */
   savePreset(): void;
@@ -120,6 +122,7 @@ export const createPresetSlice: SliceCreator<PresetSlice> = (set, get) => {
 
     setSlotLabel: (key, label) => commit(ops.setSlotLabel(get().preset, key, label), `slot-label:${key}`),
     setPresetName: (name) => commit({ ...get().preset, name }, 'preset-name'),
+    setArtboardSize: (width, height) => commit(ops.setArtboardSize(get().preset, width, height)),
 
     savePreset: () => {
       const { preset, savedPresets } = get();

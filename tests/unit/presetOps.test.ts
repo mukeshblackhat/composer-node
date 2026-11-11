@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PresetError, validatePreset, type Preset } from '../../src/engine';
 import { seedPresets } from '../../src/presets';
-import { addLayer, moveLayer, removeLayer, renameSlot, setFrame, uniqueKey } from '../../src/store/presetOps';
+import { addLayer, moveLayer, removeLayer, renameSlot, setArtboardSize, setFrame, uniqueKey } from '../../src/store/presetOps';
 
 const hero = (): Preset => structuredClone(seedPresets[0]);
 const ids = (p: Preset) => p.layers.map((l) => l.id);
@@ -37,6 +37,7 @@ describe('preset operations', () => {
     addLayer(p, 'text');
     removeLayer(p, 'layer-title');
     renameSlot(p, 'title', 'headline');
+    setArtboardSize(p, 1080, 1350);
     expect(JSON.stringify(p)).toBe(before);
   });
 
@@ -48,7 +49,17 @@ describe('preset operations', () => {
     expect(moveLayer(p, 'layer-backdrop', -1)).toBe(p);
   });
 
-  it('rounds frames to whole pixels', () => {
+it('resizes the artboard and leaves the layers where they are', () => {
+    const p = hero();
+    const next = setArtboardSize(p, 1080, 1350);
+    expect(next.artboard).toEqual({ ...p.artboard, width: 1080, height: 1350 });
+    expect(next.layers).toBe(p.layers);
+    expect(() => validatePreset(structuredClone(next))).not.toThrow();
+    expect(setArtboardSize(p, p.artboard.width, p.artboard.height)).toBe(p);
+    expect(setArtboardSize(p, 1200.4, 0).artboard).toMatchObject({ width: 1200, height: 1 });
+  });
+
+    it('rounds frames to whole pixels', () => {
     const next = setFrame(hero(), 'layer-title', { x: 10.4, y: 10.6, w: 0.2, h: 99.5 });
     expect(next.layers[2].frame).toEqual({ x: 10, y: 11, w: 1, h: 100 });
   });

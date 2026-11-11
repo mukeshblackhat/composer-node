@@ -25,6 +25,17 @@ export function setFrame(preset: Preset, id: string, frame: Frame): Preset {
 }
 
 /**
+ * Change the artboard's size. Layers stay where they are: only the artboard
+ * around them changes.
+ */
+export function setArtboardSize(preset: Preset, width: number, height: number): Preset {
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(height));
+  if (w === preset.artboard.width && h === preset.artboard.height) return preset;
+  return { ...preset, artboard: { ...preset.artboard, width: w, height: h } };
+}
+
+/**
  * Move a layer in the stack. +1 brings it one step forward (drawn later),
  * -1 sends it one step back. Moving past either end does nothing.
  */
