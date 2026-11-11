@@ -10,7 +10,7 @@ A deterministic Composer node for a node-based workflow. Images and text go in a
 ```
 npm install
 npm run dev          # the app
-npm test             # 44 unit tests
+npm test             # 45 unit tests
 npm run typecheck
 npm run build
 ```
@@ -85,13 +85,13 @@ To add a layer type: add a file in `src/engine/layers/` (layout and paint), add 
 - A link is not a fixed input. If its host serves a different image tomorrow, the same CSV gives different pixels. Each link is fetched once per page load, and `run.json` records the SHA-256 of the bytes it gave, so a change can be detected but not prevented.
 - A link only works if its host allows cross-origin reads. Linked images are decoded by the browser, so their pixels can differ between browser versions. The golden hashes cover bundled assets only.
 - Undo covers the preset, not the node graph. A wire that was unplugged by deleting its slot does not come back on undo.
-- The 9:16 layout is a second preset, not one layout adapting to two formats.
+- The 9:16 layout is a second preset, not one layout adapting to two formats. The editor can switch the artboard between nine sizes, but layers do not move or scale with it: you place them again and save the result as a new preset.
 - Text needs canvas `letterSpacing`, which older browsers do not have.
 
 ### 3. How I verified it
 
-- 44 unit tests cover the fit maths, text wrap, shrink and cut, alignment, preset checks, wiring rules, drag geometry and telling links from asset ids.
-- 10 Playwright tests in Chrome: golden hashes for the 5 sets; two fresh browser sessions give the same hashes; Verify finds all 5 identical; each downloaded PNG, decoded in Node, hashes the same as the editor preview for all 5 sets; the Output node matches the preview; the zip holds one PNG per set with the run's hashes; a long title shrinks and then is cut; a batch draws a good link, warns about a missing link, a web page and a host that blocks reads, and still finishes; a linked image exports with the preview's pixels; a bad link says why on its input node. The link tests use a local server, not the internet.
+- 45 unit tests cover the fit maths, text wrap, shrink and cut, alignment, preset checks, wiring rules, drag geometry and telling links from asset ids.
+- 11 Playwright tests in Chrome: golden hashes for the 5 sets; two fresh browser sessions give the same hashes; Verify finds all 5 identical; each downloaded PNG, decoded in Node, hashes the same as the editor preview for all 5 sets; the Output node matches the preview; the zip holds one PNG per set with the run's hashes; a long title shrinks and then is cut; a batch draws a good link, warns about a missing link, a web page and a host that blocks reads, and still finishes; a linked image exports with the preview's pixels; a bad link says why on its input node; picking another artboard size reshapes the preview and the export, and one undo restores it. The link tests use a local server, not the internet.
 - I made sure the golden test can fail: changing one text colour from `#3b1d10` to `#3b1d11` broke it.
 - Not verified: Safari, Firefox and Windows; the real asset pack; very large images; touch input; runs of 100 or more sets.
 

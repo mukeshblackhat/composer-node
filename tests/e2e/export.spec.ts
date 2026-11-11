@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
+import { PNG } from 'pngjs';
 import { downloadedBytes, freshHash, openApp, pngHash, runSampleBatch } from './helpers';
 
 test('each exported PNG has exactly the pixels of the editor preview', async ({ page }) => {
@@ -47,4 +48,27 @@ test('a title far too long for its frame shrinks, then is cut, and says so', asy
 
   await title.fill('Slow mornings '.repeat(12));
   await expect(warnings.locator('[data-code=text-truncated]')).toHaveCount(1);
+});
+
+test('another artboard size reshapes the preview and the export, and one undo restores it', async ({ page }) => {
+  await openApp(page);
+  await page.getByTestId('edit-layout').click();
+  const preview = page.getByTestId('preview-hash');
+  await expect(preview).toHaveAttribute('data-hash', /^[0-9a-f]{64}$/);
+  const square = (await preview.getAttribute('data-hash'))!;
+
+  await page.getByTestId('artboard-size').selectOption({ label: 'Portrait 4:5' });
+  await expect(page.getByTestId('artboard-px')).toHaveText('1080 × 1350 px');
+  await expect(preview).toHaveAttribute('data-hash', new RegExp(`^(?!${square}$)[0-9a-f]{64}$`));
+  const portrait = (await preview.getAttribute('data-hash'))!;
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-png').click()]);
+  const bytes = await downloadedBytes(download);
+  const png = PNG.sync.read(bytes);
+  expect([png.width, png.height]).toEqual([1080, 1350]);
+  expect(pngHash(bytes)).toBe(portrait);
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByTestId('artboard-px')).toHaveText('1080 × 1080 px');
+  await expect(preview).toHaveAttribute('data-hash', square);
 });
