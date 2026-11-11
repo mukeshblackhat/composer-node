@@ -4,6 +4,7 @@ import type { Edge, Node } from '@xyflow/react';
 export const COMPOSER_ID = 'composer';
 export const OUTPUT_ID = 'output';
 
+/** `assetId` is a bundled asset id or an http(s) link. The name is kept because it is in saved state. */
 export type ImageInputData = { label: string; assetId: string };
 export type TextInputData = { label: string; text: string };
 
