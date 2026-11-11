@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "id": "hero-square",
+  "name": "Hero square",
+  "artboard": { "width": 1080, "height": 1080, "background": "#ffffff" },
+  "slots": [
+    { "key": "backdrop", "label": "Backdrop", "type": "image" },
+    { "key": "product", "label": "Product", "type": "image" },
+    { "key": "title", "label": "Title", "type": "text", "placeholder": "Title" },
+    { "key": "tagline", "label": "Tagline", "type": "text", "placeholder": "Tagline" }
+  ],
+  "layers": [
+    {
+      "id": "layer-backdrop",
+      "type": "image",
+      "slot": "backdrop",
+      "frame": { "x": 0, "y": 0, "w": 1080, "h": 1080 },
+      "visible": true,
+      "opacity": 1,
+      "blend": "normal",
+      "fit": "cover",
+      "anchor": { "x": 0.5, "y": 0.5 }
+    },
+    {
+      "id": "layer-product",
+      "type": "image",
+      "slot": "product",
+      "frame": { "x": 340, "y": 330, "w": 400, "h": 580 },
+      "visible": true,
+      "opacity": 1,
+      "blend": "normal",
+      "fit": "contain",
+      "anchor": { "x": 0.5, "y": 1 }
+    },
+    {
+      "id": "layer-title",
+      "type": "text",
+      "slot": "title",
+      "frame": { "x": 90, "y": 70, "w": 900, "h": 150 },
+      "visible": true,
+      "family": "DM Serif Display",
+      "weight": 400,
+      "size": 96,
+      "color": "#3b1d10",
+      "align": "center",
+      "valign": "middle",
+      "lineHeight": 1.1,
+      "letterSpacing": 0,
+      "overflow": { "minSize": 56, "maxLines": 2 }
+    },
+    {
+      "id": "layer-tagline",
+      "type": "text",
+      "slot": "tagline",
+      "frame": { "x": 190, "y": 230, "w": 700, "h": 80 },
+      "visible": true,
+      "family": "Inter",
+      "weight": 600,
+      "size": 34,
+      "color": "#3b1d10",
+      "align": "center",
+      "valign": "top",
+      "lineHeight": 1.25,
+      "letterSpacing": 0.5,
+      "overflow": { "minSize": 24, "maxLines": 2 }
+    }
+  ]
+}
