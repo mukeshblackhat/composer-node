@@ -50,10 +50,19 @@ export function paintLayout(
   }
 }
 
+// Reused for every render into a target. It is filled and copied out in one
+// go, so nothing ever sees it half done.
+let scratch: HTMLCanvasElement | null = null;
+
 /**
  * The one way to make pixels. The preview, the PNG export and the batch run
  * all call this. Pass a canvas to draw into it, or leave it out to get a
  * new one. The canvas is always exactly the artboard size.
+ *
+ * Painting always happens on a canvas that is not on the page, and the
+ * result is then copied into the target. A canvas on the page inherits CSS
+ * such as font smoothing, which changes how its text is drawn; painting
+ * there would make the preview differ from the export.
  */
 export function render(
   preset: Preset,
@@ -61,10 +70,11 @@ export function render(
   images: (id: string) => LoadedImage | undefined,
   target?: HTMLCanvasElement,
 ): RenderResult {
-  const canvas = target ?? document.createElement('canvas');
+  const { width, height } = preset.artboard;
+  const canvas = target ? (scratch ??= document.createElement('canvas')) : document.createElement('canvas');
   // Setting the size also resets every bit of context state.
-  canvas.width = preset.artboard.width;
-  canvas.height = preset.artboard.height;
+  canvas.width = width;
+  canvas.height = height;
 
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('This browser cannot create a 2D canvas.');
@@ -75,5 +85,14 @@ export function render(
   const env = createCanvasEnv(ctx, images);
   const layout = layoutPreset(preset, inputs, env);
   paintLayout(ctx, preset, layout, env);
-  return { canvas, ...layout };
+  if (!target) return { canvas, ...layout };
+
+  target.width = width;
+  target.height = height;
+  const out = target.getContext('2d', { willReadFrequently: true });
+  if (!out) throw new Error('This browser cannot create a 2D canvas.');
+  // Same size, no scaling: every pixel is copied as it is.
+  out.globalCompositeOperation = 'copy';
+  out.drawImage(canvas, 0, 0);
+  return { canvas: target, ...layout };
 }
