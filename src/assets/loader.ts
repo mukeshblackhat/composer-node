@@ -45,7 +45,10 @@ export async function loadImages(): Promise<void> {
   await Promise.all(imageAssets.map((asset) => loadImage(asset.id, asset.url)));
 }
 
-/** Call once before the first render. */
-export async function loadAssets(): Promise<void> {
-  await Promise.all([loadFonts(), loadImages()]);
+let loading: Promise<void> | null = null;
+
+/** Call before the first render. Later calls share the first load. */
+export function loadAssets(): Promise<void> {
+  loading ??= Promise.all([loadFonts(), loadImages()]).then(() => undefined);
+  return loading;
 }
