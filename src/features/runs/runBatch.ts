@@ -1,5 +1,6 @@
 import { zipSync } from 'fflate';
-import { getImage } from '../../assets/loader';
+import { imageLinks } from '../../assets/links';
+import { ensureImages, getImage, remoteInfo } from '../../assets/loader';
 import { canvasToPng, hashCanvas, render, type InputSet, type Preset } from '../../engine';
 import { useStore } from '../../store';
 import type { RunResult, VerifyResult } from '../../store/runSlice';
@@ -16,6 +17,8 @@ export async function runBatch(preset: Preset, rows: InputSet[]): Promise<void> 
   const store = useStore.getState();
   store.startRun();
   for (let index = 0; index < rows.length; index++) {
+    // A link that fails does not stop the run: its layer is skipped with a warning.
+    await ensureImages(imageLinks(preset, rows[index]));
     const { canvas, warnings } = render(preset, rows[index], getImage);
     const [blob, hash] = await Promise.all([canvasToPng(canvas), hashCanvas(canvas)]);
     store.addResult({ index, fileName: fileNameFor(preset, index), url: URL.createObjectURL(blob), hash, warnings });
@@ -33,6 +36,7 @@ export async function verifyBatch(preset: Preset, rows: InputSet[], earlier: Run
   let identical = 0;
   for (let index = 0; index < rows.length; index++) {
     const hashes = new Set<string>();
+    await ensureImages(imageLinks(preset, rows[index]));
     for (let r = 0; r < renders; r++) {
       hashes.add(await hashCanvas(render(preset, rows[index], getImage).canvas));
     }
@@ -42,6 +46,17 @@ export async function verifyBatch(preset: Preset, rows: InputSet[], earlier: Run
     await nextFrame();
   }
   return { identical, total: rows.length, renders };
+}
+
+/**
+ * What each link in a set gave: the hash of its bytes, or why it failed. A
+ * link can serve a different image tomorrow, and this is how to tell.
+ */
+function linkRecords(preset: Preset, row: InputSet): { link: string; sha256?: string; error?: string }[] {
+  return imageLinks(preset, row).map((link) => {
+    const info = remoteInfo(link);
+    return info?.status === 'ready' ? { link, sha256: info.sha256 } : { link, error: info?.reason ?? 'Not loaded.' };
+  });
 }
 
 /**
@@ -61,7 +76,16 @@ export async function downloadZip(preset: Preset, rows: InputSet[], results: Run
   files['run.json'] = [
     encode({
       preset: preset.id,
-      sets: results.map((r) => ({ file: r.fileName, inputs: rows[r.index], sha256: r.hash, warnings: r.warnings })),
+      sets: results.map((r) => {
+        const links = linkRecords(preset, rows[r.index]);
+        return {
+          file: r.fileName,
+          inputs: rows[r.index],
+          sha256: r.hash,
+          warnings: r.warnings,
+          ...(links.length > 0 ? { links } : {}),
+        };
+      }),
     }),
     fixed,
   ];
