@@ -54,11 +54,38 @@ To add a layer type: add a file in `src/engine/layers/` (layout and paint), add 
 
 ### 1. The three most important choices, and what I rejected
 
-**One render function makes every pixel.** The editor preview, the Output node, PNG export and the batch run all call `render(preset, inputs)`, which draws on a plain 2D canvas at the full artboard size. The preview is that canvas scaled down with CSS. Painting always happens on a canvas that is not on the page, and the result is copied into the preview: a canvas on the page inherits CSS such as font smoothing, which on macOS changed the text pixels and made the preview differ from the export. Selection boxes, handles, guides and empty-slot hints are DOM on top of it, so they can never end up in an export. Export does not copy the preview: it renders again on a fresh canvas with the same function. I rejected a DOM preview exported with html-to-image, because the browser would wrap the text one way on screen and the exporter another. I rejected Konva and Fabric because they keep their own scene state and their own text layout.
+**Choice 1: One function draws everything.**
 
-**I lay out text myself.** The engine measures words, wraps them, and works out every line's x position and baseline in whole pixels before it paints anything. The browser never decides a line break or the alignment. I rejected drawing text as vector paths with opentype.js for now. It would hold up better across browsers, but it cost more time than I had.
+The editor preview, the Output node, the PNG export and the batch run all use the same function, `render(preset, inputs)`. It draws the picture on a canvas at the full artboard size. The preview is the same picture, only shown smaller.
 
-**A preset is plain JSON, kept apart from the input values.** It has an artboard, slots (what the node accepts) and layers (where each slot is drawn). The inputs are a flat map from slot key to value, so a CSV row already is an input set, and the Composer node's handles are just the preset's slots. Applying another preset keeps every wire whose slot key still exists. I rejected keeping values inside layers, because then one preset could not run on 100 products.
+So what you see in the editor is what you get in the export. The export does not copy the preview. It draws the picture again with the same function.
+
+Selection boxes, handles, guides and empty-slot hints are not part of the picture. They are normal page elements placed on top of it, so they can never appear in an export.
+
+One problem I had to fix: on macOS, a canvas that is on the page picks up the page's font smoothing style, and this changed the text pixels. Now the drawing always happens on a canvas that is not on the page, and the result is copied into the preview.
+
+What I rejected:
+
+- A preview built with HTML and exported with html-to-image. The browser can break the text lines one way on screen and another way in the export.
+- Konva and Fabric. These libraries keep their own copy of the scene and place text in their own way, so I would not control the pixels.
+
+**Choice 2: I place the text myself.**
+
+The engine measures each word, decides where each line breaks, and works out the exact position of every line in whole pixels. Only after that does it draw. The browser never decides a line break or the alignment.
+
+What I rejected: drawing text as shapes with opentype.js. It would give closer results across browsers, but it needed more time than I had.
+
+**Choice 3: A preset is plain JSON, and the input values are kept separate.**
+
+A preset has three parts:
+
+- **Artboard:** the size and the background colour.
+- **Slots:** the inputs the node accepts.
+- **Layers:** where and how each input is drawn.
+
+The input values are a simple list of slot key and value. So one row of a CSV file is already one set of inputs. The connection points on the Composer node are the preset's slots. When you apply another preset, every wire whose slot key still exists stays connected.
+
+What I rejected: keeping the values inside the layers. Then one preset could not be used for 100 products.
 
 ```json
 {
@@ -75,34 +102,60 @@ To add a layer type: add a file in `src/engine/layers/` (layout and paint), add 
 }
 ```
 
-**Inputs that do not fit.** Images are never stretched. A product uses `contain` and sits on its anchor, so a tall bottle in a wide slot keeps its shape and stands at the bottom centre. A backdrop uses `cover` and crops around its anchor. Text wraps to the frame; if it still does not fit, it shrinks one pixel at a time down to the layer's smallest size, then the last line is cut with an ellipsis. A word wider than the frame gets its own line. A missing input skips the layer. An image input is a bundled asset or an `http(s)` link; a link that is gone, is not an image, or whose host does not allow other sites to read it skips the layer too, and a batch carries on. Every fallback shows up as a warning on the Output node, in the editor and on each batch result.
+**When inputs do not fit.**
+
+- Images are never stretched.
+- A product image uses `contain`: the whole image is shown inside its box and sits on its anchor point. A tall bottle in a wide box keeps its shape and stands at the bottom centre.
+- A backdrop uses `cover`: it fills the box, and the extra part is cropped around its anchor point.
+- Text first wraps inside its box. If it still does not fit, the font size goes down one pixel at a time, until the smallest size set for that layer. If it still does not fit, the last line is cut and ends with "…".
+- A word that is wider than the box gets its own line.
+- If an input is missing, that layer is skipped.
+- An image input can be a bundled asset or an `http(s)` link. If the link is dead, is not an image, or its host does not allow other websites to read it, that layer is skipped and the batch continues.
+- Each of these cases shows a warning on the Output node, in the editor and on each batch result.
 
 ### 2. Limits
 
-- The same pixels are only promised on the same browser and OS. Text edges differ between platforms, and browsers with canvas fingerprint protection (Brave, Firefox in strict mode) add noise to pixel reads, which breaks the hash.
-- Frames are fixed. When a title wraps to two lines, the tagline under it does not move down, so they can touch. Set 3 shows this.
-- Fonts come from a fixed list. An image is a bundled asset or a link; there is no upload.
-- A link is not a fixed input. If its host serves a different image tomorrow, the same CSV gives different pixels. Each link is fetched once per page load, and `run.json` records the SHA-256 of the bytes it gave, so a change can be detected but not prevented.
-- A link only works if its host allows cross-origin reads. Linked images are decoded by the browser, so their pixels can differ between browser versions. The golden hashes cover bundled assets only.
-- Undo covers the preset, not the node graph. A wire that was unplugged by deleting its slot does not come back on undo.
-- The 9:16 layout is a second preset, not one layout adapting to two formats. The editor can switch the artboard between nine sizes, but layers do not move or scale with it: you place them again and save the result as a new preset.
-- Text needs canvas `letterSpacing`, which older browsers do not have.
+- **Same pixels only on the same browser and OS.** Text edges are drawn a little differently on each platform. Some browsers (Brave, Firefox in strict mode) add noise when a page reads canvas pixels, and this breaks the hash.
+- **Boxes do not move.** When a title wraps to two lines, the tagline below it does not move down, so the two can touch. Set 3 shows this.
+- **Fixed fonts, no upload.** Fonts come from a fixed list. An image is a bundled asset or a link.
+- **A link can change.** If the host gives a different image tomorrow, the same CSV gives different pixels. Each link is fetched once per page load, and `run.json` saves the SHA-256 of the bytes it got. So a change can be noticed, but it cannot be stopped.
+- **A link needs permission from its host.** It works only if the host allows other websites to read the image. The browser decodes linked images, so their pixels can differ between browser versions. The golden hashes cover bundled assets only.
+- **Undo covers the preset only.** It does not cover the node graph. If deleting a slot removes a wire, undo does not bring the wire back.
+- **One layout does not adapt to another size.** The 9:16 layout is a second preset. The editor can switch the artboard between nine sizes, but the layers do not move or scale. You place them again and save the result as a new preset.
+- **Older browsers.** Text needs canvas `letterSpacing`, which older browsers do not have.
 
 ### 3. How I verified it
 
-- 45 unit tests cover the fit maths, text wrap, shrink and cut, alignment, preset checks, wiring rules, drag geometry and telling links from asset ids.
-- 11 Playwright tests in Chrome: golden hashes for the 5 sets; two fresh browser sessions give the same hashes; Verify finds all 5 identical; each downloaded PNG, decoded in Node, hashes the same as the editor preview for all 5 sets; the Output node matches the preview; the zip holds one PNG per set with the run's hashes; a long title shrinks and then is cut; a batch draws a good link, warns about a missing link, a web page and a host that blocks reads, and still finishes; a linked image exports with the preview's pixels; a bad link says why on its input node; picking another artboard size reshapes the preview and the export, and one undo restores it. The link tests use a local server, not the internet.
-- I made sure the golden test can fail: changing one text colour from `#3b1d10` to `#3b1d11` broke it.
-- Not verified: Safari, Firefox and Windows; the real asset pack; very large images; touch input; runs of 100 or more sets.
+**45 unit tests** check: image fit maths, text wrap, shrink and cut, alignment, preset checks, wiring rules, drag geometry, and telling a link from an asset id.
+
+**11 Playwright tests in Chrome** check:
+
+- The 5 sample sets give the saved golden hashes.
+- Two fresh browser sessions give the same hashes.
+- Verify finds all 5 sets identical.
+- Each downloaded PNG, decoded in Node, has the same hash as the editor preview, for all 5 sets.
+- The Output node matches the preview.
+- The zip has one PNG per set, with the hashes from the run.
+- A long title shrinks first and is then cut.
+- A batch draws a good link, gives a warning for a missing link, a web page and a host that blocks reading, and still finishes.
+- A linked image exports with the same pixels as the preview.
+- A bad link shows the reason on its input node.
+- Choosing another artboard size changes the preview and the export, and one undo brings the old size back.
+
+The link tests use a local server, not the internet.
+
+**I checked that the golden test can fail.** I changed one text colour from `#3b1d10` to `#3b1d11`, and the test broke.
+
+**Not verified:** Safari, Firefox and Windows; the real asset pack; very large images; touch input; runs of 100 or more sets.
 
 ### 4. When the agent got it wrong
 
-TODO: replace with your own story if you have a better one. Draft from this build: the agent named the Output node's type `output`. React Flow ships default CSS for its own node type of that name, so the node got a stray grey box behind it. Type checks and tests all passed. I found it by looking at a screenshot of the canvas, renamed the type to `outputImage`, and left a comment saying why.
+Nothing much have to see lot of things at once so decided with other ai like chatgpt and claude to what to build on and to make the render engine ourself instead of using any liberary as per the scope so also thinking about the server rendering of the same node so we though of this so by using the headless browser we can run the jobs at the server adn generate them without relying on user side. 
 
 ### 5. The next primitive
 
-A Stack layer: a frame that lays its children out in a column with a gap. When the title wraps to two lines, the tagline moves down instead of running into it. Users could build layouts that hold up for any text length, and adapting one layout to a second format would get much easier.
+Flex Implementation and auto adapt to diff sizes or aspect 
 
 ### 6. Hours
 
-TODO: the true number.
+4-5 hours 
